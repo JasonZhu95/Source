@@ -8,6 +8,8 @@
 #include "InputMappingContext.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Camera/CameraComponent.h"
 
 ABird::ABird()
 {
@@ -20,6 +22,13 @@ ABird::ABird()
 
 	BirdMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("BirdMesh"));
 	BirdMesh->SetupAttachment(GetRootComponent());
+
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	CameraBoom->SetupAttachment(GetRootComponent());
+	CameraBoom->TargetArmLength = 300.f;
+
+	ViewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	ViewCamera->SetupAttachment(CameraBoom);
 
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
@@ -38,17 +47,23 @@ void ABird::BeginPlay()
 	
 }
 
-void ABird::MoveForward(float Value)
-{
-	UE_LOG(LogTemp, Warning, TEXT("Value: %f"), Value);
-}
-
 void ABird::Move(const FInputActionValue& Value)
 {
-	const bool CurrentValue = Value.Get<bool>();
-	if (CurrentValue)
+	const float DirectionValue = Value.Get<float>();
+	if (Controller && (DirectionValue != 0.f))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("IA_Move triggered"));
+		FVector Forward = GetActorForwardVector();
+		AddMovementInput(Forward, DirectionValue);
+	}
+}
+
+void ABird::Look(const FInputActionValue& Value)
+{
+	const FVector2D LookAxisValue = Value.Get<FVector2D>();
+	if (GetController())
+	{
+		AddControllerYawInput(LookAxisValue.X);
+		AddControllerPitchInput(LookAxisValue.Y);
 	}
 }
 
@@ -62,10 +77,11 @@ void ABird::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ABird::Move);
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABird::Look);
 	}
-
 }
 
